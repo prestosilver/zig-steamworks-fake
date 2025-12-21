@@ -1,7 +1,7 @@
 const steam = @import("root.zig");
 
 pub const CreateItem = extern struct {
-    pub const ID: steam.CallbackId = .CreateItem;
+    pub const ID: steam.CallbackId = .create_item;
 
     result: steam.Result,
     file_id: steam.PublishedFileId,
@@ -11,7 +11,7 @@ pub const CreateItem = extern struct {
 };
 
 pub const UpdateItem = extern struct {
-    pub const ID: steam.CallbackId = .UpdateItem;
+    pub const ID: steam.CallbackId = .update_item;
 
     result: steam.Result,
     needs_workshop_agree: bool,

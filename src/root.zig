@@ -8,61 +8,65 @@ const options = if (@hasDecl(@import("root"), "steam_options")) @import("root").
 pub const fake_api = @hasDecl(options, "fake_steam") and options.fake_steam;
 const enable_api = !fake_api and (@hasDecl(options, "use_steam") and options.use_steam);
 
-pub const STEAM_APP_ID: AppId = if (@hasDecl(options, "app_id")) .{ .id = options.app_id } else .{ .id = 4124360 };
 pub const allocator = if (@hasDecl(options, "alloc")) options.alloc else std.heap.c_allocator;
 
-const TEST_USER: User.Id = .{ .id = 1000 };
 const TEST_UGC: UGC = .{};
 const TEST_UTILS: Utils = .{};
 const TEST_STATS: UserStats = .{};
 
-pub const NO_APP_ID: AppId = .{ .id = 0 };
-
 pub const CallbackId = enum(u32) {
-    CreateItem = 3403,
-    UpdateItem = 3404,
+    create_item = 3403,
+    update_item = 3404,
 };
 
 pub const UGCQueryKind = enum(u32) {
-    RankedByVote = 0,
-    RankedByPublicationDate = 1,
-    AcceptedForGameRankedByAcceptanceDate = 2,
-    RankedByTrend = 3,
+    ranked_by_vote = 0,
+    ranked_by_publication_date = 1,
+    accepted_for_game_ranked_by_acceptance_date = 2,
+    ranked_by_trend = 3,
 };
 
 pub const WorkshopFileType = enum(u32) {
-    Community = 0,
-    Microtransaction = 1,
-    Collection = 2,
-    Art = 3,
-    Video = 4,
-    Screenshot = 5,
-    Game = 6,
-    GameManagedItem = 15,
+    community = 0,
+    microtransaction = 1,
+    collection = 2,
+    art = 3,
+    video = 4,
+    screenshot = 5,
+    game = 6,
+    game_managed_item = 15,
 };
 
 pub const Result = enum(u32) {
-    Ok = 1,
-    Fail = 2,
-    NoConnection = 3,
-    InvalidPassword = 4,
-    LoggedInElsewhere = 5,
+    ok = 1,
+    fail = 2,
+    no_connection = 3,
+    invalid_password = 4,
+    logged_in_elsewhere = 5,
     _,
 };
 
 pub const WorkshopItemVisibility = enum(u32) {
-    Public,
-    FriendsOnly,
-    Private,
-    Unlisted,
+    public,
+    friends_only,
+    private,
+    unlisted,
 };
 
-pub const AppId = extern struct { id: u32 };
+pub const AppId = enum(u32) {
+    none = 0,
+    this_app = if (@hasDecl(options, "app_id")) options.app_id else 480,
+    _,
+};
 
-pub const User = extern struct {
-    pub const Id = extern struct { id: u64 };
+pub const User = enum(u32) {
+    pub const Id = enum(u64) {
+        fakeuser = 1000,
+        _,
+    };
 
-    data: u32,
+    fakeuser = 1000,
+    _,
 
     extern fn SteamAPI_ISteamUser_GetSteamID(User) Id;
     pub fn getSteamId(
@@ -72,7 +76,7 @@ pub const User = extern struct {
             return SteamAPI_ISteamUser_GetSteamID(self);
         } else {
             log.debug("Get Steam Id From User", .{});
-            return TEST_USER;
+            return .fakeuser;
         }
     }
 };
@@ -100,15 +104,15 @@ pub const Utils = extern struct {
         } else {
             log.debug("Check complete {}", .{handle});
             switch (handle) {
-                .Query => {
+                .query => {
                     failed.* = false;
                     return true;
                 },
-                .CreateItem => {
+                .create_item => {
                     failed.* = false;
                     return true;
                 },
-                .UpdateItem => {
+                .update_item => {
                     failed.* = false;
                     return true;
                 },
@@ -138,8 +142,8 @@ pub const Utils = extern struct {
         } else {
             get_result: {
                 switch (T.ID) {
-                    .CreateItem => {
-                        const id = steam_items.items.len;
+                    .create_item => {
+                        const id: PublishedFileId = @enumFromInt(steam_items.items.len);
                         const path = std.fmt.allocPrint(allocator, "/home/john/doc/rep/github.com/sandeee/fake_steam/created/{}", .{id}) catch break :get_result;
 
                         var root = std.fs.openDirAbsolute("/", .{}) catch break :get_result;
@@ -157,17 +161,17 @@ pub const Utils = extern struct {
                         updateFakeUGC() catch break :get_result;
 
                         data.* = .{
-                            .result = .Ok,
-                            .file_id = .{ .id = id },
+                            .result = .ok,
+                            .file_id = id,
                             .needs_workshop_agree = false,
                         };
 
                         failed.* = false;
                         return true;
                     },
-                    .UpdateItem => {
+                    .update_item => {
                         data.* = .{
-                            .result = .Ok,
+                            .result = .ok,
                             .needs_workshop_agree = false,
                         };
 
@@ -187,18 +191,18 @@ pub const UserStats = extern struct {};
 pub const Pipe = extern struct {};
 
 const APIHandleKind = enum {
-    Query,
-    CreateItem,
-    UpdateItem,
+    query,
+    create_item,
+    update_item,
 };
 
 pub const APIHandle = if (fake_api) union(APIHandleKind) {
-    Query: struct {
+    query: struct {
         handle: UGCQueryHandle,
     },
-    CreateItem,
-    UpdateItem,
-} else extern struct { data: u64 };
+    create_item,
+    update_item,
+} else enum(u64) { no_handle = 0, _ };
 
 pub const UGCQueryHandle = if (fake_api) struct {
     kind: UGCQueryKind,
@@ -214,8 +218,9 @@ pub const UGCQueryHandle = if (fake_api) struct {
         _ = ugc;
         _ = text;
     }
-} else extern struct {
-    data: u64,
+} else enum(u64) {
+    _,
+
     extern fn SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(ugc: *const UGC, self: UGCQueryHandle) bool;
     pub fn deinit(self: UGCQueryHandle, ugc: *const UGC) void {
         _ = SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(ugc, self);
@@ -228,10 +233,7 @@ pub const UGCQueryHandle = if (fake_api) struct {
     }
 };
 
-pub const PublishedFileId = extern struct {
-    id: u64,
-};
-
+pub const PublishedFileId = enum(u64) { _ };
 pub const UGC = extern struct {
     pub const ItemDetails = if (fake_api) struct {
         file_id: PubFileId,
@@ -289,8 +291,8 @@ pub const UGC = extern struct {
         children: u32,
     };
 
-    pub const UpdateHandle = extern struct {
-        id: u64,
+    pub const UpdateHandle = enum(u64) {
+        _,
 
         extern fn SteamAPI_ISteamUGC_SetItemTitle(ugc: *const UGC, handle: UpdateHandle, title: [*:0]const u8) bool;
         pub fn setTitle(
@@ -304,10 +306,10 @@ pub const UGC = extern struct {
 
                 return SteamAPI_ISteamUGC_SetItemTitle(ugc, self, tmp_title);
             } else {
-                log.debug("Set item title: {}", .{self.id});
+                log.debug("Set item title: {}", .{@intFromEnum(self)});
 
-                steam_items.items[self.id].title = (allocator.realloc(steam_items.items[self.id].title, title.len) catch return false);
-                @memcpy(steam_items.items[self.id].title, title);
+                steam_items.items[@intFromEnum(self)].title = (allocator.realloc(steam_items.items[@intFromEnum(self)].title, title.len) catch return false);
+                @memcpy(steam_items.items[@intFromEnum(self)].title, title);
 
                 updateFakeUGC() catch return false;
 
@@ -324,7 +326,7 @@ pub const UGC = extern struct {
             if (enable_api) {
                 return SteamAPI_ISteamUGC_SetItemVisibility(ugc, self, vis);
             } else {
-                log.debug("Set item vis: {}", .{self.id});
+                log.debug("Set item vis: {}", .{@intFromEnum(self)});
 
                 return true;
             }
@@ -342,10 +344,10 @@ pub const UGC = extern struct {
 
                 return SteamAPI_ISteamUGC_SetItemDescription(ugc, self, tmp_desc);
             } else {
-                log.debug("Set item desc: {}", .{self.id});
+                log.debug("Set item desc: {}", .{@intFromEnum(self)});
 
-                steam_items.items[self.id].desc = (allocator.realloc(steam_items.items[self.id].desc, desc.len) catch return false);
-                @memcpy(steam_items.items[self.id].desc, desc);
+                steam_items.items[@intFromEnum(self)].desc = (allocator.realloc(steam_items.items[@intFromEnum(self)].desc, desc.len) catch return false);
+                @memcpy(steam_items.items[@intFromEnum(self)].desc, desc);
 
                 updateFakeUGC() catch return false;
 
@@ -366,18 +368,18 @@ pub const UGC = extern struct {
 
                 return SteamAPI_ISteamUGC_SetItemContent(ugc, self, @ptrCast(tmp_path));
             } else {
-                log.debug("Set item content: {}", .{self.id});
+                log.debug("Set item content: {}", .{@intFromEnum(self)});
 
                 // manual guard on sandeee, hello, and cats
-                if (self.id < 3)
+                if (@intFromEnum(self) < 3)
                     return false;
 
-                if (self.id > steam_items.items.len)
+                if (@intFromEnum(self) > steam_items.items.len)
                     return false;
 
                 {
                     var rm_child = std.process.Child.init(
-                        &.{ "rm", "-r", steam_items.items[self.id].folder },
+                        &.{ "rm", "-r", steam_items.items[@intFromEnum(self)].folder },
                         allocator,
                     );
                     _ = rm_child.spawnAndWait() catch return false;
@@ -390,7 +392,7 @@ pub const UGC = extern struct {
 
                 {
                     var cp_child = std.process.Child.init(
-                        &.{ "cp", "-r", tmp_path, steam_items.items[self.id].folder },
+                        &.{ "cp", "-r", tmp_path, steam_items.items[@intFromEnum(self)].folder },
                         allocator,
                     );
                     _ = cp_child.spawnAndWait() catch return false;
@@ -407,18 +409,18 @@ pub const UGC = extern struct {
             note: []const u8,
         ) APIHandle {
             if (enable_api) {
-                const tmp_note = allocator.dupeZ(u8, note) catch return .{ .data = 0 };
+                const tmp_note = allocator.dupeZ(u8, note) catch return .no_handle;
                 defer allocator.free(tmp_note);
 
                 return SteamAPI_ISteamUGC_SubmitItemUpdate(ugc, self, tmp_note);
             } else {
-                log.debug("Submit Update: {}", .{self.id});
-                return .UpdateItem;
+                log.debug("Submit Update: {}", .{@intFromEnum(self)});
+                return .update_item;
             }
         }
     };
 
-    pub const PubFileId = extern struct { id: u64 };
+    pub const PubFileId = enum(u64) { _ };
 
     extern fn SteamAPI_ISteamUGC_DownloadItem(ugc: *const UGC, id: PubFileId, hp: bool) bool;
     pub fn downloadItem(
@@ -443,8 +445,8 @@ pub const UGC = extern struct {
         if (enable_api) {
             return SteamAPI_ISteamUGC_CreateItem(ugc, appid, kind);
         } else {
-            log.debug("CreateItem: kind: {}", .{kind});
-            return .CreateItem;
+            log.debug("CreaTeItem: kind: {}", .{kind});
+            return .create_item;
         }
     }
 
@@ -457,8 +459,10 @@ pub const UGC = extern struct {
         if (enable_api) {
             return SteamAPI_ISteamUGC_StartItemUpdate(ugc, appid, item);
         } else {
-            log.debug("Start Update: {}", .{item});
-            return .{ .id = item.id };
+            log.debug("Start Update: {}", .{@intFromEnum(item)});
+
+            const tmp: u64 = @intFromEnum(item);
+            return @enumFromInt(tmp);
         }
     }
 
@@ -486,7 +490,7 @@ pub const UGC = extern struct {
             return SteamAPI_ISteamUGC_GetItemState(ugc, id);
         } else {
             return .{
-                .installed = id.id < steam_items.items.len,
+                .installed = @intFromEnum(id) < steam_items.items.len,
             };
         }
     }
@@ -502,11 +506,11 @@ pub const UGC = extern struct {
         if (enable_api) {
             return SteamAPI_ISteamUGC_GetItemInstallInfo(ugc, id, size, folder.ptr, @intCast(folder.len), timestamp);
         } else {
-            log.debug("itemInfo: {}", .{id.id});
+            log.debug("itemInfo: {}", .{@intFromEnum(id)});
 
-            if (id.id < steam_items.items.len) {
+            if (@intFromEnum(id) < steam_items.items.len) {
                 size.* = 0;
-                const path = steam_items.items[id.id].folder;
+                const path = steam_items.items[@intFromEnum(id)].folder;
                 @memcpy(folder[0..path.len], path);
                 timestamp.* = 0;
 
@@ -527,7 +531,7 @@ pub const UGC = extern struct {
         } else {
             log.debug("SendQuery: handle: {}", .{handle});
             return .{
-                .Query = .{
+                .query = .{
                     .handle = handle,
                 },
             };
@@ -535,28 +539,28 @@ pub const UGC = extern struct {
     }
 
     const UserQuery = enum(u32) {
-        Published = 0,
-        VotedOn = 1,
-        VotedUp = 2,
-        VotedDown = 3,
-        VotedLater = 4,
-        Favorited = 5,
-        Subscribed = 6,
-        UsedOrPlayed = 7,
-        Followed = 8,
+        published = 0,
+        voted_on = 1,
+        voted_up = 2,
+        voted_down = 3,
+        voted_later = 4,
+        favorited = 5,
+        subscribed = 6,
+        used_or_played = 7,
+        followed = 8,
     };
 
     const UGCMatchingType = enum(u32) {
-        Items = 0,
-        ItemsMtx = 1,
-        ItemsReadyToUse = 2,
-        UsableInGame = 10,
-        All = 0xffff_ffff,
+        items = 0,
+        items_mtx = 1,
+        items_ready_to_use = 2,
+        usable_in_game = 10,
+        all = 0xffff_ffff,
     };
 
     const SortOrder = enum(u32) {
-        CreateDesc = 0,
-        CreateAsc = 1,
+        create_desc = 0,
+        create_asc = 1,
     };
 
     extern fn SteamAPI_ISteamUGC_CreateQueryUserUGCRequest(ugc: *const UGC, id: User.Id, list_type: UserQuery, kind: u32, sort: SortOrder, creator_id: AppId, consumer_id: AppId, page: u32) UGCQueryHandle;
@@ -575,7 +579,7 @@ pub const UGC = extern struct {
         } else {
             log.debug("Query: querykind: {}, kind: {}, creator: {}, consumer: {}, page: {}", .{ query_kind, kind, creator_id, consumer_id, page });
             return .{
-                .kind = .RankedByVote,
+                .kind = .ranked_by_vote,
                 .page = page,
             };
         }
@@ -616,11 +620,11 @@ pub const UGC = extern struct {
             if (index >= steam_items.items.len) return false;
 
             details.* = .{
-                .file_id = .{ .id = @intCast(index) },
-                .result = .Ok,
-                .file_type = .Community,
-                .creator = STEAM_APP_ID,
-                .consumer = STEAM_APP_ID,
+                .file_id = @enumFromInt(index),
+                .result = .ok,
+                .file_type = .community,
+                .creator = .this_app,
+                .consumer = .this_app,
                 .title = steam_items.items[index].title,
                 .desc = steam_items.items[index].desc,
                 .owner = 0,
@@ -744,7 +748,7 @@ pub fn getUser() User {
     if (enable_api) {
         return SteamAPI_SteamUser_v023();
     } else {
-        return .{ .data = 0 };
+        return .fakeuser;
     }
 }
 
