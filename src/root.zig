@@ -715,7 +715,7 @@ pub fn restartIfNeeded(
     if (enable_api) {
         return SteamAPI_RestartAppIfNecessary(app_id);
     } else {
-        log.debug("Restart If Needed: {}", .{app_id});
+        log.debug("Restart If Needed: {}", .{@intFromEnum(app_id)});
         return false;
     }
 }
