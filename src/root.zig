@@ -58,8 +58,9 @@ pub const AppId = enum(u32) {
 
     none = 0,
     this_app = raw_appid,
-    ugc_app = if (@hasDecl(options, "ugc_app_id")) options.ugc_app_id else raw_appid,
     _,
+
+    pub const ugc_app: AppId = @enumFromInt(if (@hasDecl(options, "ugc_app_id")) options.ugc_app_id else raw_appid);
 };
 
 pub const User = enum(u32) {
