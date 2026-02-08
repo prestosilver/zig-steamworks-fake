@@ -54,8 +54,11 @@ pub const WorkshopItemVisibility = enum(u32) {
 };
 
 pub const AppId = enum(u32) {
+    const raw_appid = if (@hasDecl(options, "app_id")) options.app_id else 480;
+
     none = 0,
-    this_app = if (@hasDecl(options, "app_id")) options.app_id else 480,
+    this_app = raw_appid,
+    ugc_app = if (@hasDecl(options, "ugc_app_id")) options.ugc_app_id else raw_appid,
     _,
 };
 
