@@ -120,6 +120,14 @@ pub const Utils = extern struct {
                     failed.* = false;
                     return true;
                 },
+                .start_playtime_tracking => {
+                    failed.* = false;
+                    return true;
+                },
+                .stop_playtime_tracking => {
+                    failed.* = false;
+                    return true;
+                },
             }
         }
     }
@@ -198,6 +206,8 @@ const APIHandleKind = enum {
     query,
     create_item,
     update_item,
+    start_playtime_tracking,
+    stop_playtime_tracking,
 };
 
 pub const APIHandle = if (fake_api) union(APIHandleKind) {
@@ -206,6 +216,8 @@ pub const APIHandle = if (fake_api) union(APIHandleKind) {
     },
     create_item,
     update_item,
+    start_playtime_tracking,
+    stop_playtime_tracking,
 } else enum(u64) { no_handle = 0, _ };
 
 pub const UGCQueryHandle = if (fake_api) struct {
@@ -240,7 +252,7 @@ pub const UGCQueryHandle = if (fake_api) struct {
 pub const PublishedFileId = enum(u64) { _ };
 pub const UGC = extern struct {
     pub const ItemDetails = if (fake_api) struct {
-        file_id: PubFileId,
+        file_id: PublishedFileId,
         result: Result,
         file_type: WorkshopFileType,
         creator: AppId,
@@ -267,7 +279,7 @@ pub const UGC = extern struct {
         score: f32,
         children: u32,
     } else extern struct {
-        file_id: PubFileId,
+        file_id: PublishedFileId,
         result: Result,
         file_type: WorkshopFileType,
         creator: AppId,
@@ -424,12 +436,10 @@ pub const UGC = extern struct {
         }
     };
 
-    pub const PubFileId = enum(u64) { _ };
-
-    extern fn SteamAPI_ISteamUGC_DownloadItem(ugc: *const UGC, id: PubFileId, hp: bool) bool;
+    extern fn SteamAPI_ISteamUGC_DownloadItem(ugc: *const UGC, id: PublishedFileId, hp: bool) bool;
     pub fn downloadItem(
         ugc: *const UGC,
-        id: PubFileId,
+        id: PublishedFileId,
         hp: bool,
     ) bool {
         if (enable_api) {
@@ -454,11 +464,11 @@ pub const UGC = extern struct {
         }
     }
 
-    extern fn SteamAPI_ISteamUGC_StartItemUpdate(ugc: *const UGC, appid: AppId, item: PubFileId) UpdateHandle;
+    extern fn SteamAPI_ISteamUGC_StartItemUpdate(ugc: *const UGC, appid: AppId, item: PublishedFileId) UpdateHandle;
     pub fn startUpdate(
         ugc: *const UGC,
         appid: AppId,
-        item: PubFileId,
+        item: PublishedFileId,
     ) UpdateHandle {
         if (enable_api) {
             return SteamAPI_ISteamUGC_StartItemUpdate(ugc, appid, item);
@@ -485,10 +495,10 @@ pub const UGC = extern struct {
         }
     };
 
-    extern fn SteamAPI_ISteamUGC_GetItemState(ugc: *const UGC, id: PubFileId) ItemState;
+    extern fn SteamAPI_ISteamUGC_GetItemState(ugc: *const UGC, id: PublishedFileId) ItemState;
     pub fn getItemState(
         ugc: *const UGC,
-        id: PubFileId,
+        id: PublishedFileId,
     ) ItemState {
         if (enable_api) {
             return SteamAPI_ISteamUGC_GetItemState(ugc, id);
@@ -499,10 +509,10 @@ pub const UGC = extern struct {
         }
     }
 
-    extern fn SteamAPI_ISteamUGC_GetItemInstallInfo(ugc: *const UGC, id: PubFileId, size: *u64, folder: [*c]u8, folderSize: u32, timestamp: *u32) bool;
+    extern fn SteamAPI_ISteamUGC_GetItemInstallInfo(ugc: *const UGC, id: PublishedFileId, size: *u64, folder: [*c]u8, folderSize: u32, timestamp: *u32) bool;
     pub fn getItemInstallInfo(
         ugc: *const UGC,
-        id: PubFileId,
+        id: PublishedFileId,
         size: *u64,
         folder: []u8,
         timestamp: *u32,
@@ -539,6 +549,26 @@ pub const UGC = extern struct {
                     .handle = handle,
                 },
             };
+        }
+    }
+
+    extern fn SteamAPI_ISteamUGC_StartPlaytimeTracking(self: *const UGC, ids: [*c]const PublishedFileId, count: u32) APIHandle;
+    pub fn startPlaytimeTracking(self: *const UGC, ids: []const PublishedFileId) APIHandle {
+        if (enable_api) {
+            return SteamAPI_ISteamUGC_StartPlaytimeTracking(self, ids.ptr, @intCast(ids.len));
+        } else {
+            log.debug("Start playtime tracking, {any}", .{ids});
+            return .start_playtime_tracking;
+        }
+    }
+
+    extern fn SteamAPI_ISteamUGC_StopPlaytimeTracking(self: *const UGC, ids: [*c]const PublishedFileId, count: u32) APIHandle;
+    pub fn stopPlaytimeTracking(self: *const UGC, ids: []const PublishedFileId) APIHandle {
+        if (enable_api) {
+            return SteamAPI_ISteamUGC_StopPlaytimeTracking(self, ids.ptr, @intCast(ids.len));
+        } else {
+            log.debug("Stop playtime tracking, {any}", .{ids});
+            return .stop_playtime_tracking;
         }
     }
 
