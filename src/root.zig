@@ -41,8 +41,59 @@ pub const Result = enum(u32) {
     ok = 1,
     fail = 2,
     no_connection = 3,
-    invalid_password = 4,
-    logged_in_elsewhere = 5,
+    invalid_password = 5,
+    logged_in_elsewhere = 6,
+    invalid_protocol_version = 7,
+    invalid_parameter = 8,
+    file_not_found = 9,
+    busy = 10,
+    invalid_state = 11,
+    invalid_name = 12,
+    invalid_email = 13,
+    duplicate_name = 14,
+    access_denied = 15,
+    timeout = 16,
+    banned = 17,
+    account_not_found = 18,
+    invalid_steam_id = 19,
+    service_unavailable = 20,
+    not_logged_on = 21,
+    pending = 22,
+    encryption_failure = 23,
+    insufficient_privilege = 24,
+    limit_exceeded = 25,
+    revoked = 26,
+    expired = 27,
+    already_redeemed = 28,
+    duplicate_request = 29,
+    already_owned = 30,
+    ip_not_found = 31,
+    persist_failed = 32,
+    locking_failed = 33,
+    logon_session_replaced = 34,
+    connect_failed = 35,
+    handshake_failed = 36,
+    io_failure = 37,
+    remote_disconnect = 38,
+    shopping_cart_not_found = 39,
+    blocked = 40,
+    ignored = 41,
+    no_match = 42,
+    account_disabled = 43,
+    service_read_only = 44,
+    admin_ok = 46,
+    content_version = 47,
+    try_another_cm = 48,
+    password_required_to_kick_session = 49,
+    logged_in_elsehwhere = 50,
+    suspended = 51,
+    cancelled = 52,
+    data_corruption = 53,
+    disk_full = 54,
+    remote_call_failed = 55,
+    pasword_unset = 56,
+    external_account_unlinked = 57,
+
     _,
 };
 
@@ -387,7 +438,7 @@ pub const UGC = extern struct {
                 log.debug("Set item content: {}", .{@intFromEnum(self)});
 
                 // manual guard on sandeee, hello, and cats
-                if (@intFromEnum(self) < 3)
+                if (@intFromEnum(self) < 1)
                     return false;
 
                 if (@intFromEnum(self) > steam_items.items.len)
@@ -418,6 +469,24 @@ pub const UGC = extern struct {
             }
         }
 
+        extern fn SteamAPI_ISteamUGC_SetItemPreview(ugc: *const UGC, item: UpdateHandle, file: [*:0]const u8) bool;
+        pub fn setPreview(
+            self: UpdateHandle,
+            ugc: *const UGC,
+            file: []const u8,
+        ) bool {
+            if (enable_api) {
+                const tmp_file = allocator.dupeZ(u8, file) catch return false;
+                defer allocator.free(tmp_file);
+
+                return SteamAPI_ISteamUGC_SetItemPreview(ugc, self, tmp_file);
+            } else {
+                log.debug("Add preview {}, {s}", .{ @intFromEnum(self), file });
+
+                return true;
+            }
+        }
+
         extern fn SteamAPI_ISteamUGC_SubmitItemUpdate(ugc: *const UGC, item: UpdateHandle, note: [*:0]const u8) APIHandle;
         pub fn submit(
             self: UpdateHandle,
@@ -431,6 +500,7 @@ pub const UGC = extern struct {
                 return SteamAPI_ISteamUGC_SubmitItemUpdate(ugc, self, tmp_note);
             } else {
                 log.debug("Submit Update: {}", .{@intFromEnum(self)});
+
                 return .update_item;
             }
         }
