@@ -16,3 +16,13 @@ pub const UpdateItem = packed struct {
     result: steam.Result,
     needs_workshop_agree: bool,
 };
+
+pub const UGCQueryCompleted = packed struct {
+    pub const ID: steam.CallbackId = .ugc_query_completed;
+
+    handle: u64,
+    result: steam.Result,
+    num_results: u32,
+    total_results: u32,
+    cached: bool,
+};
